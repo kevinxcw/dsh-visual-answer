@@ -1,0 +1,10 @@
+# dsh-visual-answer bundle patch.
+#
+# One row: the Host half registers the /visual command, the visualMode session
+# projection, and the conditional HTML-document prompt section. The client half
+# is picked up from `dsh.client` without a second row.
+- insert:
+    - id: dsh-visual-answer
+      name: dsh-visual-answer
+      config:
+        directory: .dsh/visual

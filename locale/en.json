@@ -1,0 +1,25 @@
+{
+  "meta": {
+    "title": "Visual answer mode",
+    "description": "A composer switch that turns answers into interactive HTML documents and a session tab that lists them."
+  },
+  "toggle": {
+    "label": "Visual",
+    "on": "Visual answer mode is on: answers become interactive HTML documents",
+    "off": "Visual answer mode is off: answers return to prose",
+    "error": "Could not switch"
+  },
+  "view": {
+    "title": "Visual",
+    "hint": "HTML documents produced in this session live in",
+    "empty": {
+      "title": "No visual documents yet",
+      "body": "Turn on the Visual switch under the composer, then ask a question that benefits from a picture. Documents are written to"
+    },
+    "loading": "Loading…",
+    "error": "Could not read the directory",
+    "retry": "Retry",
+    "refresh": "Refresh",
+    "open": "Open"
+  }
+}

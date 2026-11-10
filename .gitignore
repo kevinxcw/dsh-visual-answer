@@ -1,0 +1,9 @@
+node_modules/
+lib/
+*.tgz
+.env
+.env.*
+.DS_Store
+*.log
+.idea/
+.vscode/
