@@ -61,6 +61,10 @@ window.__ModuleLoader__.load({
       'border-color:color-mix(in srgb,var(--dsw-alias-state-business-primary,#2f6fed) 45%,transparent);',
       'background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#2f6fed) 10%,transparent)}',
       '.va-toggle[data-busy=true]{opacity:.55;cursor:progress}',
+      '.va-toggle-dot{flex:none;width:6px;height:6px;border-radius:999px;border:1px solid currentColor;opacity:.5}',
+      '.va-toggle[data-enabled=true] .va-toggle-dot{background:currentColor;border-color:currentColor;opacity:1}',
+      '.va-toggle[data-failed=true]{color:var(--dsw-alias-state-error-primary,#c0392b);',
+      'border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary,#c0392b) 50%,transparent)}',
       '.va-toggle svg{display:block;flex:none}',
       '.va-view{height:100%;overflow-y:auto;padding:28px 24px 48px;',
       'color:var(--dsw-alias-label-primary,#1b1c1f)}',
@@ -75,6 +79,12 @@ window.__ModuleLoader__.load({
       '.va-view-action:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.05));',
       'color:var(--dsw-alias-label-primary,#1b1c1f)}',
       '.va-view-action:focus-visible{outline:none;box-shadow:0 0 0 2px var(--dsw-focus-ring-color,#2f6fed)}',
+      '.va-view-state{display:inline-flex;align-items:center;gap:5px;margin-left:8px;padding:0 8px;',
+      'border-radius:999px;font-size:11px;line-height:18px;vertical-align:2px;',
+      'color:var(--dsw-alias-label-tertiary,#8a8f98);border:.5px solid var(--dsw-alias-border-l2,#e3e5e8)}',
+      '.va-view-state[data-on=true]{color:var(--dsw-alias-state-business-primary,#2f6fed);',
+      'border-color:color-mix(in srgb,var(--dsw-alias-state-business-primary,#2f6fed) 45%,transparent);',
+      'background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#2f6fed) 8%,transparent)}',
       '.va-empty{padding:36px 20px;border:.5px dashed var(--dsw-alias-border-l2,#e3e5e8);border-radius:12px;',
       'text-align:center;color:var(--dsw-alias-label-tertiary,#8a8f98);font-size:13px;line-height:22px}',
       '.va-empty-title{display:block;margin-bottom:6px;font-size:14px;font-weight:500;',
@@ -91,8 +101,8 @@ window.__ModuleLoader__.load({
       'background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#2f6fed) 10%,transparent);',
       'color:var(--dsw-alias-state-business-primary,#2f6fed)}',
       '.va-file-main{display:flex;flex-direction:column;min-width:0;flex:1;gap:2px}',
-      '.va-file-name{font-size:13px;font-weight:500;line-height:18px;white-space:nowrap;overflow:hidden;',
-      'text-overflow:ellipsis}',
+      '.va-file-name{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;line-height:18px;',
+      'white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.va-file-sub{font-size:11px;line-height:16px;color:var(--dsw-alias-label-tertiary,#8a8f98);',
       'font-family:var(--ds-font-family-code,ui-monospace,monospace);white-space:nowrap;overflow:hidden;',
       'text-overflow:ellipsis}',
@@ -213,7 +223,8 @@ window.__ModuleLoader__.load({
           }
         }, [busy, enabled, known, sessionId, translate])
 
-        const title = error !== '' ? error : translate(enabled ? 'toggle.on' : 'toggle.off')
+        const failed = error !== ''
+        const title = failed ? error : translate(enabled ? 'toggle.on' : 'toggle.off')
         return h(
           'button',
           {
@@ -221,6 +232,7 @@ window.__ModuleLoader__.load({
             className: 'va-toggle',
             'data-enabled': enabled ? 'true' : 'false',
             'data-busy': busy ? 'true' : undefined,
+            'data-failed': failed ? 'true' : undefined,
             'aria-pressed': enabled,
             title,
             disabled: busy,
@@ -228,6 +240,8 @@ window.__ModuleLoader__.load({
           },
           h(Icon, null),
           h('span', null, translate('toggle.label')),
+          h('span', { className: 'va-toggle-dot', 'aria-hidden': true }),
+          failed ? h('span', null, translate('toggle.failed')) : null,
         )
       }
 
@@ -239,6 +253,11 @@ window.__ModuleLoader__.load({
       function VisualAnswersView(props) {
         const translate = props.t
         const sessionId = props.sessionId
+        const useProjection =
+          typeof props.useProjection === 'function' ? props.useProjection : noProjection
+        const mode = useProjection(PROJECTION)
+        const modeKnown = mode !== undefined && mode !== null
+        const modeOn = modeKnown && mode.enabled === true
         const [state, setState] = React.useState({ status: 'loading', entries: [], error: '' })
         const [nonce, setNonce] = React.useState(0)
 
@@ -358,7 +377,18 @@ window.__ModuleLoader__.load({
               h(
                 'div',
                 null,
-                h('h2', { className: 'va-view-title' }, translate('view.title')),
+                h(
+                  'h2',
+                  { className: 'va-view-title' },
+                  translate('view.title'),
+                  modeKnown
+                    ? h(
+                        'span',
+                        { className: 'va-view-state', 'data-on': modeOn ? 'true' : 'false' },
+                        translate(modeOn ? 'view.modeOn' : 'view.modeOff'),
+                      )
+                    : null,
+                ),
                 h(
                   'p',
                   { className: 'va-view-sub' },

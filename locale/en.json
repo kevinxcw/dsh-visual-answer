@@ -7,19 +7,23 @@
     "label": "Visual",
     "on": "Visual answer mode is on: answers become interactive HTML documents",
     "off": "Visual answer mode is off: answers return to prose",
-    "error": "Could not switch"
+    "error": "Could not switch",
+    "failed": "Could not switch, click to retry",
+    "stateOn": "on"
   },
   "view": {
     "title": "Visual",
     "hint": "HTML documents produced in this session live in",
     "empty": {
       "title": "No visual documents yet",
-      "body": "Turn on the Visual switch under the composer, then ask a question that benefits from a picture. Documents are written to"
+      "body": "Turn on the Visual switch under the composer, then ask a question that benefits from a picture. A switch takes effect from the next turn. Documents are written to"
     },
     "loading": "Loading…",
     "error": "Could not read the directory",
     "retry": "Retry",
     "refresh": "Refresh",
-    "open": "Open"
+    "open": "Open",
+    "modeOn": "mode on",
+    "modeOff": "mode off"
   }
 }

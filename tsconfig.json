@@ -13,5 +13,5 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/index.ts"]
+  "include": ["src/index.ts", "src/gate.ts"]
 }
