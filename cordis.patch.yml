@@ -6,5 +6,3 @@
 - insert:
     - id: dsh-visual-answer
       name: dsh-visual-answer
-      config:
-        directory: .dsh/visual
