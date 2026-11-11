@@ -1,128 +1,173 @@
 # dsh-visual-answer
 
-**让 Agent 的回答，从「一大段文字」变成「一页看得懂的图」。**
+**Turns DeepSeek Harness answers into one self-contained, interactive HTML page, so you read the structure instead of a wall of prose.**
 
-一个给 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 用的插件。打开输入框里的「可视化」开关后，模型不再把答案铺成一屏文字，而是写成一份带排版、图表和交互的 HTML 页面——回复里只留两句话和一个链接，点开在右侧读。
+English | [中文](README.zh.md)
 
-## 为什么需要它
+> **Status:** v0.3.0, developer preview. Not on npm yet — install from a local checkout. Tested with DSH `0.2.2-rc.1` on macOS.
 
-Agent 太能写了。问它“这条请求是怎么走到数据库的”，它能还你一千多字，结构工整、逻辑完整，然后你读到三分之二，还是没记住谁调了谁。
+A turn looks like this:
 
-问题不在模型，在介质。**文字是单线程的，而理解是网状的**：
+```text
+You:  Trace a request through the gateway, the order service, the cache and the
+      database, and mark where it retries.
+DSH:  The three decision points and both retry windows are on the page.
 
-- 一条调用链，你想看的是箭头，不是“首先 A 调用 B，然后 B 调用 C”
-- 两个方案的取舍，你想看的是并排的卡片，不是三段“另一方面”
-- 一组数据的变化，你想看的是曲线，不是散落在句子里的数字
-- 一次排障的时序，你想看的是时间轴，不是“在此之前”和“随后”
-
-把结构、层级、对比、时序全压进段落里，等于让读者在脑子里重新画一遍图。阅读理解的负担，本来不该由读者一个人扛。
-
-同一件事，两种回答：
-
-> 首先客户端发起请求，经过网关做鉴权，再由路由层分发到订单服务；订单服务先查缓存，未命中则查数据库；数据库超时会重试两次，每次间隔 200ms……
-
-读到第三行，你已经记不清重试发生在哪一层。同一段内容画成页面，是三层方块、一条箭头、两个重试标记，和一个可以点开的超时分支——**结构直接摆在眼前，不用在脑子里重建**。
-
-## 换一种介质
-
-开启后，每一轮的答案会变成 `.dsh/visual/` 下的一个 HTML 文件：
-
-- **图文结合**：标题、卡片、图表、时间线按信息结构摆，一眼看到骨架，需要细节再往下读
-- **可以交互**：切 tab、展开条目、拖时间轴、悬停看数值——想深挖的地方才深挖
-- **自包含**：CSS、SVG、脚本全部内联，不联网、不请求外部资源，双击就能打开
-- **轻**：一页通常几十 KB，不再把几千字糊在对话里让你滚屏
-
-为什么不是 Markdown？因为 Markdown 只能表达段落和顺序，画不出箭头、并排、时间轴和交互——而理解需要的恰恰是这些。也不是截图：HTML 是文本，能选中、能搜索、能复制，还能被下一轮继续修改。
-
-对话里只剩这样一句：
-
-```markdown
-三次重试的位置已经画出来了：[打开调用链](.dsh/visual/20261110-1802-retry-path.html)
+      [Open the retry path](.dsh/visual/20261110-1802-retry-path.html)
 ```
 
-点链接，或者到会话顶部的「可视化」页签里点一行，页面在右侧 Sidebar 打开。
+The file behind the link is the answer: one complete HTML document with inline CSS, inline SVG or canvas and inline `<script>`, required to work without the network. It opens in the right sidebar and stays in the project under `.dsh/visual/`.
 
-## 它适合这些场景
+## Why
 
-| 你在做什么 | 你会拿到 |
-| --- | --- |
-| 问一条调用链、数据流 | 一张带箭头的流程图，关键分支单独标出来 |
-| 比较两个方案 | 并排卡片加取舍表，而不是三段并列 |
-| 拆解一组数据 | 图表加结论，数字不再散在句子里 |
-| 复盘一次排障 | 时间轴，标出每个决策点和代价 |
-| 写一份要转给别人的东西 | 一页能直接转发、能离线打开的页面 |
+Agents write well, which is the problem. Ask how a request flows through four services and you get 1,200 accurate, orderly, hard-to-remember words: the call chain is a sentence, the two options sit three paragraphs apart, the retry window is a subordinate clause. Text is one-dimensional; the thing you are trying to understand is a graph. The reader ends up redrawing the diagram in their head.
 
-反过来，一句话能答完的问题、需要原样复制的命令输出、纯代码改动——关掉开关用文字更快。
+With the switch on, the shape is drawn: boxes and arrows for the chain, cards side by side for a trade-off, a timeline for an incident. Detail stays available — click a step, hover a value, expand a branch — instead of being flattened into prose.
 
-## 怎么用
+Keep it off for one-line answers, raw command output and pure code changes: there, prose is faster.
 
-1. 点输入框里的「可视化」开关（权限控件右侧），圆点变实心表示已开启
-2. 正常提问
-3. 模型写页面、回复里给链接；点开在右侧读，或到顶部「可视化」页签里翻这个会话的全部页面
-4. 再点一次开关，回到普通文字回答
+## What you get
 
-不想动鼠标也可以：
+| Surface | Name | What it does |
+| --- | --- | --- |
+| Composer | **Visual** switch | Turns the mode on or off for the current session. Takes effect from the next turn. |
+| Session tab | **Visual** | Lists the pages in the project's `.dsh/visual/`, newest first; clicking a row opens it in the right sidebar. |
+| Command | `/visual` | `on`, `off`, toggle, or `status` from the keyboard. |
+| Turn gate | one corrective step | A turn that ends without a valid page gets exactly one nudge; if that produces nothing, the turn closes with no page. |
 
-| 命令 | 作用 |
-| --- | --- |
-| `/visual on` | 打开 |
-| `/visual off` | 关闭 |
-| `/visual` | 在开与关之间切换 |
-| `/visual status` | 自检：模式、目录、文档数、最新一份是否通过校验、上一次门禁结果 |
+While the mode is on, the model receives a short note in the runtime context, not in the system prompt: toggling never rewrites the cached prompt.
 
-开关状态按会话保存，刷新、重启、fork、回放都还在。
+## Quick start
 
-## 安装
+### 1. Build the checkout
 
-插件还没发布到 npm，从仓库安装要先构建（仓库不提交构建产物 `lib/`）：
+The repository does not ship `lib/`, so build before installing:
 
 ```sh
 git clone https://github.com/kevinxcw/dsh-visual-answer.git
 cd dsh-visual-answer
 pnpm install
-pnpm build          # 产出 lib/index.js 与 lib/client.js，安装时必需
+pnpm build
 ```
 
-然后把这个目录装进 DSH 的 profile，二选一：
+### 2. Install into a profile
 
-- **桌面版**：在 DSH 的插件管理里安装本地目录（也可以让 DSH 助手用 `plugin_manager` 安装，目标填该目录的绝对路径）。
-  不要用命令行操作 `desktop` profile，它会直接报错：`profile "desktop" is managed exclusively by the Electron application`。
-- **Web / 命令行**：装进一个 `dsh` 命令能启动的 profile，例如
+**Desktop app:** open the plugin manager and install the local directory (the checkout above). Do not run the CLI against `desktop`: it answers `profile "desktop" is managed exclusively by the Electron application`.
 
-  ```sh
-  dsh plugin --profile web add link:"$PWD"
-  ```
-
-装好后重启 DSH（Host 侧改动不支持热更新），或至少刷新页面让界面加载插件。
-
-卸载：
+**A profile the `dsh` CLI can start:**
 
 ```sh
-dsh plugin --profile <name> remove dsh-visual-answer
+dsh plugin --profile <profile> add link:"$PWD"
 ```
 
-已生成的 HTML 文件仍留在各项目的 `.dsh/visual/` 里，需要时手动删除。
+`dsh` ships with DeepSeek Harness; if it is not on your `PATH`, use the app's plugin manager.
 
-## 先说清楚
+### 3. Restart and confirm
 
-- **每轮一页**。包括“帮我提交代码”这种操作型请求，也会给你一张几行的回执页——这是“每轮都有东西可看”的代价。
-- **目录固定** `.dsh/visual/`，暂不支持改路径。它是个隐藏目录，会出现在 `git status` 里，建议把 `.dsh/` 加进项目的 `.gitignore`。
-- **页面脚本不一定执行**。DSH 只有在开启「Coding Tools」的交互式 HTML 预览时才运行页面里的 JavaScript；关掉时是净化后的静态预览，动效和交互不生效。这是 DSH 的全局设置，插件不会去改。
-- **没写就是没有**。某一轮没写出合格页面时，Host 会给模型一次补写机会；仍然没有，这一轮就是没有页面，不会替你造一页充数。
-- **开关在下一轮生效**。本轮进行中切换，本轮仍按开始时的模式走，改动从下一轮起。
-- **关闭后偶尔有惯性**。历史里堆满页面时，模型可能还会顺手写一页；插件会在上下文里补一段“已关闭”的说明来收敛，但提示词不是硬约束。
+The Host half is not hot-reloaded — restart DSH, then check the row:
 
-## 开发
+```sh
+dsh --profile <profile> --dump-config | grep -n -A3 dsh-visual-answer
+```
+
+### 4. First answer
+
+Turn on **Visual** in the composer toolbar, next to the permission control, then ask something that benefits from a picture:
+
+```text
+Trace how a request moves through the gateway, the order service, the cache and
+the database, and mark where it retries.
+```
+
+Expected: a page appears under `.dsh/visual/`, the reply is a sentence or two plus a relative link, and the **Visual** tab at the top of the conversation lists the page.
+
+## Commands
+
+| Command | Effect |
+| --- | --- |
+| `/visual on` | Turn the mode on; applies from the next turn. |
+| `/visual off` | Turn it off; applies from the next turn. |
+| `/visual` | Toggle. |
+| `/visual status` | Mode, directory, page count, the latest page's verdict, and the last gate outcome. |
+
+The switch is stored in the session log, so it survives reload, restart, fork and replay.
+
+## Configuration
+
+One key, and most people never touch it:
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `contextOrder` | number | `300` | Position of the mode note among runtime-context blocks. Lower comes earlier. |
+
+```yaml
+- insert:
+    - id: dsh-visual-answer
+      name: dsh-visual-answer
+      config:
+        contextOrder: 300
+```
+
+Overriding the row by `id` replaces the whole `config`; it is not a deep merge.
+
+## Compatibility
+
+| Item | Value |
+| --- | --- |
+| DSH | `0.2.2-rc.1` (`engines.dsh`) |
+| Halves | Host + Client |
+| Node | 24.21.0, the runtime bundled with DSH |
+| Tested on | macOS 26.6.2, DSH 0.2.2-rc.1 |
+
+Windows and Linux are untested.
+
+## Permissions and safety
+
+- **Reads:** `.dsh/visual/` under the session working directory — names, sizes, mtimes, and the content it validates; session commands and events; the `visualMode` session projection.
+- **Writes:** the plugin writes no files. The model writes the page with its normal file tools, under DSH's file policy and approval. The gate only injects a text message.
+- **Executes:** no shell, no subprocess.
+- **Network:** none. Pages must be self-contained; the plugin never fetches anything.
+- **Credentials:** none.
+- **Approval:** writing the page follows the current file policy. If a write is denied, the turn ends without a page.
+- **Uninstall:** `dsh plugin --profile <profile> remove dsh-visual-answer`. Pages stay in each project's `.dsh/visual/` until you delete them.
+
+## Limits
+
+- **One page per turn is the contract**, including operational turns such as running a command or committing. Those get a short receipt page instead of a report.
+- **The directory is fixed** at `.dsh/visual/` and belongs to the project rather than the session, so pages from other sessions in the same project share the tab. It is hidden but still shows up in `git status`; add `.dsh/` to the project's `.gitignore`.
+- **Page scripts need the interactive preview.** DSH runs a page's JavaScript only when the interactive HTML preview in Coding Tools is on; otherwise you get a sanitized static preview.
+- **No fallback page.** One corrective step is offered, then the turn closes with whatever the model said.
+- **Validation is structural.** A page counts when it is non-empty, contains `<html>` and `<body>`, and ends with `</html>`; the plugin does not review its content.
+- **The switch is one turn behind.** Flipping it mid-turn does not change the running turn.
+- **Turning it off is not absolute.** A transcript full of pages can still pull the model back to the format; the note in the context reduces it but is not a hard constraint.
+- **Pages are model output.** Read before forwarding; the plugin adds no review of its own.
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+| --- | --- | --- |
+| `profile "desktop" is managed exclusively by the Electron application` | CLI used on the desktop profile | Install the directory from the app's plugin manager. |
+| Plugin listed but there is no **Visual** switch | Client half stale | Restart DSH, then refresh the page. |
+| The reply links a page but the tab is empty | Page written outside the session working directory | `/visual status` prints the exact directory it watches. |
+| Page renders but buttons and tabs do nothing | Interactive HTML preview off | Turn it on in DSH's Coding Tools settings. |
+| `.dsh/` shows up in `git status` | The output directory is inside the project | Add `.dsh/` to `.gitignore`. |
+| Install fails with a missing `lib/index.js` | The checkout was not built | Run `pnpm build` before installing. |
+| A turn ends with no page | The corrective step produced nothing either | `/visual status` reports it as `miss`; check the write policy, then ask again. |
+
+## Development
 
 ```sh
 pnpm install
-pnpm build       # tsc 产出 lib/index.js / lib/gate.js，并把 src/client.js 复制为 lib/client.js
+pnpm build       # tsc → lib/index.js + lib/gate.js, then copies src/client.js → lib/client.js
 pnpm typecheck
-pnpm test        # node --test：校验逻辑 + 桩 Context 驱动 apply() 的集成用例
+pnpm test        # node --test: gate unit tests and integration tests against a stub Cordis context
+pnpm pack --dry-run
 ```
 
-兼容 DeepSeek Harness `0.2.2-rc.1`（`engines.dsh` 为精确版本）。
+`pack --dry-run` should list `lib/`, `cordis.patch.yml`, `locale/`, `icon.svg` and `README.md`.
 
-## 许可证
+Bugs and requests: <https://github.com/kevinxcw/dsh-visual-answer/issues>.
 
-[MIT](./LICENSE)
+## License
+
+MIT. See [LICENSE](LICENSE).
