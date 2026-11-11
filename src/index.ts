@@ -40,12 +40,15 @@ const MTIME_SLACK_MS = 1_500
 
 /** Plugin configuration; every field is editable from `cordis.patch.yml`. */
 export interface Config {
-  /** Order of the injected prompt section in the assembled system prompt. */
-  sectionOrder: number
+  /**
+   * Order of the block inside the dynamic runtime-context snapshot. It only
+   * decides placement next to other context contributions, not authority.
+   */
+  contextOrder: number
 }
 
 export const Config: z<Config> = z.object({
-  sectionOrder: z.number().default(11800),
+  contextOrder: z.number().default(300),
 })
 
 /** Folded per-session state of the visual-answer switch. */
@@ -146,12 +149,20 @@ interface TurnTrace {
 }
 
 /**
- * The skill text the model receives while the switch is on. It names the exact
- * output path so the Client tab can list the result, distinguishes explanatory
- * turns from operational ones, and says that the Host enforces the rule.
+ * The block the model receives while visual answers are on: the output contract
+ * plus the state line, framed in the tag the model can search for.
+ *
+ * It lives in the dynamic runtime context rather than in the system prompt, for
+ * two reasons. Positioning: the switch is a per-session operational mode like
+ * the file policy or the approval policy, both of which the harness reports as
+ * runtime context. Caching: the routes this plugin targets update the system
+ * prompt leading-only, so a section would rewrite the first message and
+ * invalidate the whole prompt cache on every toggle; a context snapshot is a
+ * user-role message appended at the tail, which leaves the prefix intact.
  */
-function skillText(): string {
-  return `## Visual answers
+function onText(): string {
+  return `<visual-answer mode="on">
+## Visual answers: on
 
 Visual answer mode is ON for this session. Every turn in this conversation is expected to leave one page.
 
@@ -163,22 +174,29 @@ Visual answer mode is ON for this session. Every turn in this conversation is ex
 6. Operational turns (running a command, committing, editing files) still get a page: a short receipt with what ran, the key output, and any link. Do not answer those turns in prose alone either.
 7. When a turn ends without a valid page, the Host adds exactly one corrective step. If that step still leaves no page, the turn closes with nothing produced: there is no fallback, and the user will simply see whatever you replied. Write the page in the turn itself.
 
-Keep the document under roughly 80 KB; reuse CSS classes instead of repeating inline styles.`
+Keep the document under roughly 80 KB; reuse CSS classes instead of repeating inline styles.
+</visual-answer>`
 }
 
 /**
  * The note a session keeps after the switch was turned off. Without it the only
  * trace of the mode is the transcript: earlier pages, links and tool calls that
- * make the model continue the page format although the instruction is gone.
+ * make the model continue the page format although the instruction is gone. The
+ * wording also disowns a conversation summary that was written while the mode
+ * was still on, and tells the model what to record the next time it summarizes.
  */
 function offText(): string {
-  return `## Visual answers: off
+  return `<visual-answer mode="off">
+## Visual answers: off
 
-Visual answer mode was switched OFF in this session. Answer in normal prose from now on.
+Visual answer mode was switched OFF in this session. This line is the current state and it replaces every earlier statement about visual mode: conversation summaries, earlier pages and their links included.
 
-- Do not write HTML documents to \`${DIRECTORY}/\` and do not open with \`<!doctype html>\`.
+- Answer in ordinary prose. Do not write HTML documents to \`${DIRECTORY}/\`, do not open with \`<!doctype html>\`, and do not continue the format because an earlier turn used it.
 - Earlier pages in this conversation are history, not a format to continue: do not link them, quote them, or produce a sibling page unless the user asks for one.
-- If the user explicitly asks for a page, write it and say that the switch is off.`
+- A conversation summary that still describes one page per turn is describing the time before the switch; it does not apply now.
+- When you summarize this conversation later, record that visual answers are off, and leave the page contract out of the summary.
+- If the user explicitly asks for a page, write it once and say that the visual mode is off.
+</visual-answer>`
 }
 
 /** Resolve the session working directory without hard-depending on the service. */
@@ -260,9 +278,9 @@ function gateMessage(entry: VisualEntry | undefined, verdict: Verdict | undefine
 }
 
 /**
- * Register the switch, its session projection, the conditional skill prompt,
- * and the turn-end gate.
- * @param ctx - Host context carrying commands, system prompt, and projections.
+ * Register the switch, its session projection, the tagged runtime-context
+ * block, and the turn-end gate.
+ * @param ctx - Host context carrying commands, prompt contexts, and projections.
  * @param config - validated plugin configuration.
  */
 export async function apply(ctx: Context, config: Config): Promise<void> {
@@ -274,6 +292,18 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   /** Read the folded switch state from the structural Session view. */
   const isEnabled = (session: LiveSession): boolean =>
     handle.stateOf(session as never)?.enabled === true
+
+  /**
+   * The mode this session runs under right now. The open turn's snapshot wins
+   * over the live fold, so a switch mid-turn never contradicts the running
+   * turn's contract; the runtime-context block reads this, not the live fold.
+   */
+  const modeOf = (session: LiveSession): { visual: boolean; ever: boolean } => {
+    const trace = traces.get(session.id)
+    if (trace !== undefined) return { visual: trace.visual, ever: trace.ever }
+    const state = handle.stateOf(session as never)
+    return { visual: state?.enabled === true, ever: state?.ever === true }
+  }
 
   /** Open a fresh trace, freezing the switch state this turn runs under. */
   const openTrace = (session: LiveSession): TurnTrace => {
@@ -414,25 +444,29 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
       return {
         kind: 'success',
         text: next
-          ? `可视化回答已开启：模型会把答案写成 ${DIRECTORY}/ 下的可交互 HTML 文档；缺少文档的轮次会被门禁拦下。`
-          : '可视化回答已关闭：恢复普通文字回答。',
+          ? `可视化回答已开启，从下一轮起生效：模型会把答案写成 ${DIRECTORY}/ 下的可交互 HTML 文档；缺少文档的轮次会被门禁拦下。`
+          : `可视化回答已关闭，从下一轮起生效：恢复普通文字回答。`,
       }
     },
   })
 
-  ctx.systemPrompt.section({
-    name: 'visual-answer:skill',
-    order: config.sectionOrder,
+  // The only prompt contribution: a durable user-role snapshot, appended at the
+  // tail of the current step's messages. It is emitted when the text changes
+  // (or when compaction shadowed the previous snapshot), and the snapshot intro
+  // already says it supersedes earlier runtime-context snapshots. The system
+  // prompt is deliberately left untouched: it is the cached prefix, and every
+  // toggle that rewrote it would invalidate the whole conversation.
+  ctx.systemPrompt.context({
+    name: 'visual-answer:mode',
+    order: config.contextOrder,
+    interpolate: false,
     text: (context) => {
       const agent = context.agent
       if (agent === undefined) return ''
-      const trace = traces.get(agent.session.id)
-      const state = handle.stateOf(agent.session)
-      const visual = trace === undefined ? state?.enabled === true : trace.visual
-      if (visual) return skillText()
+      const mode = modeOf(agent.session)
+      if (mode.visual) return onText()
       // A session that used the mode still carries the format in its transcript.
-      const ever = trace === undefined ? state?.ever === true : trace.ever
-      return ever ? offText() : ''
+      return mode.ever ? offText() : ''
     },
   })
 }

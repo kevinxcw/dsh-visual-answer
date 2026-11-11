@@ -23,7 +23,7 @@ async function harness() {
   const listeners = new Map()
   const projections = []
   const commands = []
-  const sections = []
+  const contexts = []
   let state = { enabled: false, ever: false, running: null }
 
   const ctx = {
@@ -34,7 +34,15 @@ async function harness() {
       },
     },
     commands: { register: (definition) => (commands.push(definition), () => {}) },
-    systemPrompt: { section: (definition) => (sections.push(definition), () => {}) },
+    systemPrompt: {
+      // The plugin must never contribute a system-prompt section: on a
+      // leading-only route that rewrites the first message and drops the whole
+      // prompt cache on every toggle.
+      section: () => {
+        throw new Error('the plugin must not register a system-prompt section')
+      },
+      context: (definition) => (contexts.push(definition), () => {}),
+    },
     on(name, listener) {
       const bucket = listeners.get(name) ?? []
       bucket.push(listener)
@@ -44,7 +52,7 @@ async function harness() {
     get: () => ({ get: () => cwd }),
   }
 
-  await apply(ctx, { sectionOrder: 11800 })
+  await apply(ctx, { contextOrder: 300 })
   const projection = projections[0]
   state = projection.init()
 
@@ -63,7 +71,16 @@ async function harness() {
     fold('command/done', { commandId: 'off', kind: 'success' })
   }
 
-  return { cwd, fold, emit, commands, sections, stateOf: () => state, switchOn, switchOff }
+  return {
+    cwd,
+    fold,
+    emit,
+    commands,
+    contexts,
+    stateOf: () => state,
+    switchOn,
+    switchOff,
+  }
 }
 
 test('the gate retries once, then closes the turn without writing a page', async () => {
@@ -131,12 +148,12 @@ test('the gate stays quiet while the mode is off', async () => {
 })
 
 test('a switch mid-turn applies to the next turn, not the running one', async () => {
-  const { cwd, emit, fold, switchOn, switchOff, sections } = await harness()
-  const section = sections[0]
+  const { cwd, emit, fold, switchOn, switchOff, contexts } = await harness()
+  const context = contexts[0]
   const session = { id: 'session-mid-turn', header: { cwd } }
   const agent = { session, inject: () => {} }
   const signal = new AbortController().signal
-  const text = () => section.text({ agent: { session } })
+  const text = () => context.text({ agent: { session } })
 
   switchOn()
   await emit('session/event', session, { type: 'turn/start', data: { turn: 1 }, time: Date.now() })
@@ -193,5 +210,41 @@ test('/visual status reports the mode, the directory, and the newest page', asyn
   assert.match(result.text, /文档：2 个/u)
   assert.match(result.text, /20261110-2000-flow\.html/u)
   assert.match(result.text, /校验通过/u)
+  await rm(cwd, { recursive: true, force: true })
+})
+
+test('the switch state also reaches the model as a runtime-context snapshot', async () => {
+  const { cwd, emit, contexts, switchOn, switchOff } = await harness()
+  const context = contexts[0]
+  const session = { id: 'session-context', header: { cwd } }
+  const text = () => context.text({ agent: { session } })
+
+  assert.equal(text(), '', 'a session that never enabled the mode adds nothing')
+
+  switchOn()
+  await emit('session/event', session, { type: 'turn/start', data: { turn: 1 }, time: Date.now() })
+  const on = text()
+  assert.match(on, /^<visual-answer mode="on">/u)
+  assert.match(on, /<\/visual-answer>$/u)
+  assert.match(on, /Write exactly one self-contained HTML file/u, 'the on block carries the contract')
+
+  // Turn-scoped like the state always was: the running turn keeps its contract.
+  switchOff()
+  assert.equal(text(), on)
+
+  await emit('session/event', session, { type: 'turn/start', data: { turn: 2 }, time: Date.now() })
+  const off = text()
+  assert.match(off, /^<visual-answer mode="off">/u)
+  assert.match(off, /<\/visual-answer>$/u)
+  assert.match(off, /Visual answers: off/u)
+  assert.match(off, /replaces every earlier statement about visual mode/u)
+  assert.match(off, /summary/u)
+  await rm(cwd, { recursive: true, force: true })
+})
+
+test('an agentless assembly contributes no state line', async () => {
+  const { cwd, contexts, switchOn } = await harness()
+  switchOn()
+  assert.equal(contexts[0].text({}), '')
   await rm(cwd, { recursive: true, force: true })
 })

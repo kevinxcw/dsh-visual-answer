@@ -1,6 +1,6 @@
 {
   "name": "dsh-visual-answer",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Visual answer mode for DeepSeek Harness: a composer switch injects an HTML-document skill, a turn-end gate forces the page (or writes a fallback), and a session tab lists every page.",
   "license": "MIT",
   "type": "module",
