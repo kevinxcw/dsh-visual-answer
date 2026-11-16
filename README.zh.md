@@ -4,7 +4,7 @@
 
 中文 | [English](README.md)
 
-> **状态：** v0.3.0，开发者预览。尚未发布到 npm，从本地仓库安装；已在 DSH `0.2.2-rc.1` / macOS 上验证。
+> **状态：** v0.3.0，开发者预览。已发布到 npm：[`dsh-visual-answer`](https://www.npmjs.com/package/dsh-visual-answer)；已在 DSH `0.2.2-rc.1` / macOS 上验证。
 
 一轮问答长这样：
 
@@ -38,30 +38,21 @@ Agent 太能写了。问它一条请求怎么走，它能还你一千多字：�
 
 ## 快速开始
 
-### 1. 构建
+### 1. 装进 profile
 
-仓库不提交 `lib/`，装之前先构建：
+npm 上的包自带 `lib/`，不需要构建：
 
-```sh
-git clone https://github.com/kevinxcw/dsh-visual-answer.git
-cd dsh-visual-answer
-pnpm install
-pnpm build
-```
-
-### 2. 装进 profile
-
-**桌面版：** 打开插件管理，安装本地目录（上面这个 checkout）。不要用命令行操作 `desktop` profile，它会直接报错：`profile "desktop" is managed exclusively by the Electron application`。
+**桌面版：** 打开插件管理，从 npm 安装 `dsh-visual-answer`，或指向本地目录。
 
 **dsh 命令能启动的 profile：**
 
 ```sh
-dsh plugin --profile <profile> add link:"$PWD"
+dsh plugin --profile <profile> add dsh-visual-answer
 ```
 
-`dsh` 随 DeepSeek Harness 一起安装；不在 `PATH` 里就用桌面版的插件管理。
+`dsh` 随 DeepSeek Harness 一起安装；不在 `PATH` 里就用桌面版的插件管理。不要用命令行操作 `desktop` profile，它会直接报错：`profile "desktop" is managed exclusively by the Electron application`。
 
-### 3. 重启并确认
+### 2. 重启并确认
 
 Host 侧不支持热更新，重启 DSH，再确认插件行：
 
@@ -69,7 +60,7 @@ Host 侧不支持热更新，重启 DSH，再确认插件行：
 dsh --profile <profile> --dump-config | grep -n -A3 dsh-visual-answer
 ```
 
-### 4. 第一次提问
+### 3. 第一次提问
 
 点输入框工具栏里的 **可视化** 开关（权限控件右侧），然后问一个适合图解的问题：
 
@@ -78,6 +69,18 @@ dsh --profile <profile> --dump-config | grep -n -A3 dsh-visual-answer
 ```
 
 预期：`.dsh/visual/` 下多一个页面；回复只有一两句话加一个相对链接；会话顶部的 **可视化** 页签里能看到这一页。
+
+### 从仓库安装（可选）
+
+想跑自己改过的版本，就克隆、构建，再链接目录：
+
+```sh
+git clone https://github.com/kevinxcw/dsh-visual-answer.git
+cd dsh-visual-answer
+pnpm install
+pnpm build
+dsh plugin --profile <profile> add link:"$PWD"
+```
 
 ## 命令
 
@@ -149,7 +152,7 @@ Windows 和 Linux 未验证。
 | 回复里有链接，页签里却是空的 | 页面写到了会话工作目录之外 | `/visual status` 会打印它监视的目录 |
 | 页面能开，但按钮和标签页没反应 | 交互式 HTML 预览没开 | 到 DSH 的 Coding Tools 设置里打开 |
 | `.dsh/` 出现在 `git status` 里 | 输出目录在项目内 | 把 `.dsh/` 加进 `.gitignore` |
-| 安装时报找不到 `lib/index.js` | checkout 没构建 | 先 `pnpm build` 再安装 |
+| 安装时报找不到 `lib/index.js` | 用 `link:` 装了一个没构建的仓库 | 先 `pnpm build` 再装，或直接装 npm 包 |
 | 某一轮结束时没有页面 | 补写那次也没产出 | `/visual status` 会标成 `miss`；检查写入权限后再问一次 |
 
 ## 开发
@@ -162,7 +165,7 @@ pnpm test        # node --test：门禁单测 + 桩 Cordis context 驱动 apply(
 pnpm pack --dry-run
 ```
 
-`pack --dry-run` 里应能看到 `lib/`、`cordis.patch.yml`、`locale/`、`icon.svg` 和 `README.md`。
+`pack --dry-run` 里应能看到 `lib/`、`cordis.patch.yml`、`locale/`、`icon.svg` 和两个 README（`README*` 与 `LICENSE` 由 npm 自动带上）。
 
 问题与建议：<https://github.com/kevinxcw/dsh-visual-answer/issues>。
 

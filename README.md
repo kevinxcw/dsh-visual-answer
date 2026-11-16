@@ -4,7 +4,7 @@
 
 English | [中文](README.zh.md)
 
-> **Status:** v0.3.0, developer preview. Not on npm yet — install from a local checkout. Tested with DSH `0.2.2-rc.1` on macOS.
+> **Status:** v0.3.0, developer preview. On npm as [`dsh-visual-answer`](https://www.npmjs.com/package/dsh-visual-answer). Tested with DSH `0.2.2-rc.1` on macOS.
 
 A turn looks like this:
 
@@ -39,30 +39,21 @@ While the mode is on, the model receives a short note in the runtime context, no
 
 ## Quick start
 
-### 1. Build the checkout
+### 1. Install into a profile
 
-The repository does not ship `lib/`, so build before installing:
+The published package ships `lib/`, so there is nothing to build:
 
-```sh
-git clone https://github.com/kevinxcw/dsh-visual-answer.git
-cd dsh-visual-answer
-pnpm install
-pnpm build
-```
-
-### 2. Install into a profile
-
-**Desktop app:** open the plugin manager and install the local directory (the checkout above). Do not run the CLI against `desktop`: it answers `profile "desktop" is managed exclusively by the Electron application`.
+**Desktop app:** open the plugin manager, install `dsh-visual-answer` from npm, or point it at a local checkout.
 
 **A profile the `dsh` CLI can start:**
 
 ```sh
-dsh plugin --profile <profile> add link:"$PWD"
+dsh plugin --profile <profile> add dsh-visual-answer
 ```
 
-`dsh` ships with DeepSeek Harness; if it is not on your `PATH`, use the app's plugin manager.
+`dsh` ships with DeepSeek Harness; if it is not on your `PATH`, use the app's plugin manager. Do not run the CLI against `desktop`: it answers `profile "desktop" is managed exclusively by the Electron application`.
 
-### 3. Restart and confirm
+### 2. Restart and confirm
 
 The Host half is not hot-reloaded — restart DSH, then check the row:
 
@@ -70,7 +61,7 @@ The Host half is not hot-reloaded — restart DSH, then check the row:
 dsh --profile <profile> --dump-config | grep -n -A3 dsh-visual-answer
 ```
 
-### 4. First answer
+### 3. First answer
 
 Turn on **Visual** in the composer toolbar, next to the permission control, then ask something that benefits from a picture:
 
@@ -80,6 +71,18 @@ the database, and mark where it retries.
 ```
 
 Expected: a page appears under `.dsh/visual/`, the reply is a sentence or two plus a relative link, and the **Visual** tab at the top of the conversation lists the page.
+
+### Install from a checkout instead
+
+To run your own build — a patched version, or a branch — clone, build, and install the directory:
+
+```sh
+git clone https://github.com/kevinxcw/dsh-visual-answer.git
+cd dsh-visual-answer
+pnpm install
+pnpm build
+dsh plugin --profile <profile> add link:"$PWD"
+```
 
 ## Commands
 
@@ -151,7 +154,7 @@ Windows and Linux are untested.
 | The reply links a page but the tab is empty | Page written outside the session working directory | `/visual status` prints the exact directory it watches. |
 | Page renders but buttons and tabs do nothing | Interactive HTML preview off | Turn it on in DSH's Coding Tools settings. |
 | `.dsh/` shows up in `git status` | The output directory is inside the project | Add `.dsh/` to `.gitignore`. |
-| Install fails with a missing `lib/index.js` | The checkout was not built | Run `pnpm build` before installing. |
+| Install fails with a missing `lib/index.js` | A `link:` install of an unbuilt checkout | Run `pnpm build` first, or install the npm package instead. |
 | A turn ends with no page | The corrective step produced nothing either | `/visual status` reports it as `miss`; check the write policy, then ask again. |
 
 ## Development
@@ -164,7 +167,7 @@ pnpm test        # node --test: gate unit tests and integration tests against a 
 pnpm pack --dry-run
 ```
 
-`pack --dry-run` should list `lib/`, `cordis.patch.yml`, `locale/`, `icon.svg` and `README.md`.
+`pack --dry-run` should list `lib/`, `cordis.patch.yml`, `locale/`, `icon.svg` and both READMEs (npm includes `README*` and `LICENSE` on its own).
 
 Bugs and requests: <https://github.com/kevinxcw/dsh-visual-answer/issues>.
 

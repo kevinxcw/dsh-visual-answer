@@ -1,8 +1,26 @@
 {
   "name": "dsh-visual-answer",
   "version": "0.3.0",
-  "description": "Visual answer mode for DeepSeek Harness: a composer switch injects an HTML-document skill, a turn-end gate forces the page (or writes a fallback), and a session tab lists every page.",
+  "description": "Visual answer mode for DeepSeek Harness: a per-session switch makes the model answer as one self-contained interactive HTML page, a turn-end gate validates it, and a session tab lists every page.",
   "license": "MIT",
+  "author": "kevinxcw <35295993+kevinxcw@users.noreply.github.com> (https://github.com/kevinxcw)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kevinxcw/dsh-visual-answer.git"
+  },
+  "homepage": "https://github.com/kevinxcw/dsh-visual-answer#readme",
+  "bugs": {
+    "url": "https://github.com/kevinxcw/dsh-visual-answer/issues"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "dsh",
+    "cordis",
+    "visual-answer",
+    "html",
+    "interactive"
+  ],
   "type": "module",
   "main": "lib/index.js",
   "exports": {
